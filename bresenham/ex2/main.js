@@ -2,10 +2,6 @@ const canvas = document.getElementById("canvas");
 const gl = canvas.getContext("webgl");
 
 
-// ======================================
-// SHADERS
-// ======================================
-
 const vertexShaderSource = `
     attribute vec2 a_position;
 
@@ -26,10 +22,6 @@ const fragmentShaderSource = `
 `;
 
 
-// ======================================
-// CRIAR SHADER
-// ======================================
-
 function criarShader(tipo, codigo) {
 
     const shader = gl.createShader(tipo);
@@ -40,10 +32,6 @@ function criarShader(tipo, codigo) {
     return shader;
 }
 
-
-// ======================================
-// PROGRAMA
-// ======================================
 
 const vertexShader = criarShader(
     gl.VERTEX_SHADER,
@@ -64,21 +52,12 @@ gl.linkProgram(programa);
 
 gl.useProgram(programa);
 
-
-// ======================================
-// ATRIBUTOS
-// ======================================
-
 const positionLocation =
     gl.getAttribLocation(programa, "a_position");
 
 const colorLocation =
     gl.getUniformLocation(programa, "u_color");
 
-
-// ======================================
-// BUFFER
-// ======================================
 
 const buffer = gl.createBuffer();
 
@@ -94,11 +73,6 @@ gl.vertexAttribPointer(
     0,
     0
 );
-
-
-// ======================================
-// CORES
-// ======================================
 
 const cores = [
     [1, 0, 0, 1],       // 0 vermelho
@@ -116,18 +90,10 @@ const cores = [
 let corAtual = 2;
 
 
-// ======================================
-// MODO DE DESENHO
-// ======================================
-
 let modo = "reta";
 
 let pontos = [];
 
-
-// ======================================
-// CONVERTER COORDENADAS
-// ======================================
 
 function converterCoordenadas(event) {
 
@@ -144,12 +110,6 @@ function converterCoordenadas(event) {
 
     return [xWebGL, yWebGL];
 }
-
-
-// ======================================
-// BRESENHAM
-// ======================================
-
 function bresenham(x0, y0, x1, y1) {
 
     const pontos = [];
@@ -186,11 +146,6 @@ function bresenham(x0, y0, x1, y1) {
     return pontos;
 }
 
-
-// ======================================
-// DESENHAR UMA LINHA
-// ======================================
-
 function desenharLinha(p1, p2) {
 
     const x0 = Math.round(
@@ -212,10 +167,6 @@ function desenharLinha(p1, p2) {
     return bresenham(x0, y0, x1, y1);
 }
 
-
-// ======================================
-// DESENHAR RETA
-// ======================================
 
 function desenharReta(p1, p2) {
 
@@ -255,11 +206,6 @@ function desenharReta(p1, p2) {
         pontosLinha.length
     );
 }
-
-
-// ======================================
-// DESENHAR TRIÂNGULO
-// ======================================
 
 function desenharTriangulo(p1, p2, p3) {
 
@@ -308,22 +254,12 @@ function desenharTriangulo(p1, p2, p3) {
     );
 }
 
-
-// ======================================
-// LIMPAR TELA
-// ======================================
-
 function limparTela() {
 
     gl.clearColor(1, 1, 1, 1);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
 }
-
-
-// ======================================
-// DESENHAR FIGURA
-// ======================================
 
 function desenharFigura() {
 
@@ -347,11 +283,6 @@ function desenharFigura() {
     }
 }
 
-
-// ======================================
-// CLIQUE DO MOUSE
-// ======================================
-
 canvas.addEventListener("click", function(event) {
 
     const ponto = converterCoordenadas(event);
@@ -373,14 +304,8 @@ canvas.addEventListener("click", function(event) {
     }
 });
 
-
-// ======================================
-// TECLADO
-// ======================================
-
 document.addEventListener("keydown", function(event) {
 
-    // Modo reta
     if (event.key === "r" || event.key === "R") {
 
         modo = "reta";
@@ -389,8 +314,6 @@ document.addEventListener("keydown", function(event) {
         limparTela();
     }
 
-
-    // Modo triângulo
     if (event.key === "t" || event.key === "T") {
 
         modo = "triangulo";
@@ -400,7 +323,6 @@ document.addEventListener("keydown", function(event) {
     }
 
 
-    // Mudar cor
     if (event.key >= "0" && event.key <= "9") {
 
         corAtual = Number(event.key);
@@ -417,10 +339,6 @@ document.addEventListener("keydown", function(event) {
     }
 });
 
-
-// ======================================
-// RETA INICIAL AZUL
-// ======================================
 
 gl.clearColor(1, 1, 1, 1);
 gl.clear(gl.COLOR_BUFFER_BIT);
