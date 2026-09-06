@@ -5,11 +5,6 @@ if (!gl) {
     alert("WebGL não é suportado pelo navegador.");
 }
 
-
-// ===============================
-// SHADERS
-// ===============================
-
 const vertexShaderSource = `
     attribute vec2 a_position;
 
@@ -28,12 +23,6 @@ const fragmentShaderSource = `
         gl_FragColor = u_color;
     }
 `;
-
-
-// ===============================
-// CRIA SHADER
-// ===============================
-
 function criarShader(tipo, codigo) {
     const shader = gl.createShader(tipo);
 
@@ -48,11 +37,6 @@ function criarShader(tipo, codigo) {
 
     return shader;
 }
-
-
-// ===============================
-// PROGRAMA WEBGL
-// ===============================
 
 const vertexShader = criarShader(
     gl.VERTEX_SHADER,
@@ -73,21 +57,12 @@ gl.linkProgram(programa);
 
 gl.useProgram(programa);
 
-
-// ===============================
-// ATRIBUTOS E UNIFORMES
-// ===============================
-
 const positionLocation =
     gl.getAttribLocation(programa, "a_position");
 
 const colorLocation =
     gl.getUniformLocation(programa, "u_color");
 
-
-// ===============================
-// BUFFER
-// ===============================
 
 const buffer = gl.createBuffer();
 
@@ -104,11 +79,6 @@ gl.vertexAttribPointer(
     0
 );
 
-
-// ===============================
-// CORES
-// ===============================
-
 const cores = [
     [1.0, 0.0, 0.0, 1.0], // 0 - vermelho
     [0.0, 1.0, 0.0, 1.0], // 1 - verde
@@ -122,11 +92,6 @@ const cores = [
     [0.0, 0.0, 0.0, 1.0]  // 9 - preto
 ];
 
-
-// ===============================
-// CONVERTE COORDENADAS DO MOUSE
-// ===============================
-
 function converterCoordenadas(event) {
 
     const rect = canvas.getBoundingClientRect();
@@ -134,17 +99,12 @@ function converterCoordenadas(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Converte para coordenadas WebGL
     const xWebGL = (x / canvas.width) * 2 - 1;
     const yWebGL = 1 - (y / canvas.height) * 2;
 
     return [xWebGL, yWebGL];
 }
 
-
-// ===============================
-// BRESENHAM
-// ===============================
 
 function bresenham(x0, y0, x1, y1) {
 
@@ -183,13 +143,8 @@ function bresenham(x0, y0, x1, y1) {
 }
 
 
-// ===============================
-// DESENHA RETA
-// ===============================
-
 function desenharReta(pontoInicial, pontoFinal) {
 
-    // Converte WebGL para uma grade de pixels
     const x0 = Math.round(
         (pontoInicial[0] + 1) * canvas.width / 2
     );
@@ -247,17 +202,11 @@ function desenharReta(pontoInicial, pontoFinal) {
 }
 
 
-// ===============================
-// CONTROLE DOS CLIQUES
-// ===============================
-
 let pontoInicial = [0, 0];
 let pontoFinal = [0, 0];
 
 let primeiroClique = true;
 
-
-// Reta inicial azul
 let corAtual = 2;
 
 desenharReta(pontoInicial, pontoFinal);
@@ -286,10 +235,6 @@ canvas.addEventListener("click", function(event) {
     }
 });
 
-
-// ===============================
-// TECLAS 0 ATÉ 9
-// ===============================
 
 document.addEventListener("keydown", function(event) {
 
