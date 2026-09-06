@@ -60,3 +60,19 @@ var m3 = {
         0, 0, 1
     ];
   },
+
+  translate: function(m,tx,ty){
+    var t = m3.translation(tx,ty);
+    return m3.multiply(t,m);
+  },
+
+  scale: function(m,sx,sy){
+    var s = m3.scaling(sx,sy);
+    return m3.multiply(s,m);
+  },
+
+  rotate: function(m,angleInRadians){
+    var r = m3.rotation(angleInRadians);
+    return m3.multiply(r,m);
+  }
+};
