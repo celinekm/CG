@@ -1,258 +1,161 @@
-const canvas = document.getElementById("canvas");
-const gl = canvas.getContext("webgl2");
+"use strict";
+
+const canvas = document.querySelector("#canvas");
+const gl = canvas.getContext("webgl");
+
+const score1El = document.querySelector("#score1");
+const score2El = document.querySelector("#score2");
 
 if (!gl) {
-    throw new Error("WebGL 2 não é suportado.");
+  alert("WebGL não suportado!");
 }
 
-function verticesBarra(){
-
-    return new Float32Array([
-        -0.05,  0.2,
-        -0.05, -0.2,    
-         0.05,  0.2,
-         0.05,  0.2,
-        -0.05, -0.2,
-         0.05, -0.2
-    ]);
-}
-
-function verticesBola(){
-
-    let vertices = [];
-    let numSegments = 30;
-    let radius = 0.05;
-
-    for (let i = 0; i < numSegments; i++) {
-        let theta1 = (i / numSegments) * 2 * Math.PI;
-        let theta2 = ((i + 1) / numSegments) * 2 * Math.PI;
-
-        vertices.push(0, 0); // Center of the circle
-        vertices.push(radius * Math.cos(theta1), radius * Math.sin(theta1));
-        vertices.push(radius * Math.cos(theta2), radius * Math.sin(theta2));
-    }
-
-    return new Float32Array(vertices);
-}
-
-let verticesBarraDireita = verticesBarra();
-
-let corBarraDireita = new Float32Array([1.0, 1.0, 1.0]); 
-
-let verticesBarraEsquerda = verticesBarra();
-
-let corBarraEsquerda = new Float32Array([1.0, 1.0, 1.0]);
-
-let verticesBolaCentro = verticesBola();
-
-let corBolaCentro = new Float32Array([1.0, 1.0, 1.0]);
-
-
-
-let MbarraEsquerda = m3.translation(-0.9, 0.0);
-let MbarraDireita = m3.translation(0.9, 0.0);
-let MbolaCentro = m3.identity();
-
-
-const verticesBuffer = gl.createBuffer();
-
-const vertexShaderSource = `#version 300 es
-
-in vec2 aPosition;
-uniform mat3 u_transform;
-out vec3 vColor;
-
-void main() {
-    vec3 position = u_transform * vec3(aPosition, 1.0);
-    gl_Position = vec4(position.xy, 0.0, 1.0);
-}
+const vsSource = `
+  attribute vec2 a_position;
+  uniform mat3 u_matrix;
+  void main() {
+    gl_Position = vec4((u_matrix * vec3(a_position, 1)).xy, 0, 1);
+  }
 `;
 
-const fragmentShaderSource = `#version 300 es
-
-precision mediump float;
-uniform vec3 uColor;
-out vec4 outColor;
-
-void main() {
-    outColor = vec4(uColor, 1.0);
-}
+const fsSource = `
+  precision mediump float;
+  uniform vec4 u_color;
+  void main() {
+    gl_FragColor = u_color;
+  }
 `;
-
 
 function createShader(gl, type, source) {
-
-    const shader = gl.createShader(type);
-
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        const error = gl.getShaderInfoLog(shader);
-        gl.deleteShader(shader);
-        throw new Error(error);
-    }
-
-    return shader;
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  return shader;
 }
-
-const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
 
 const program = gl.createProgram();
-gl.attachShader(program, vertexShader);
-gl.attachShader(program, fragmentShader);
+gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, vsSource));
+gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, fsSource));
 gl.linkProgram(program);
 
-if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(gl.getProgramInfoLog(program));
+const positionLocation = gl.getAttribLocation(program, "a_position");
+const matrixLocation = gl.getUniformLocation(program, "u_matrix");
+const colorLocation = gl.getUniformLocation(program, "u_color");
+
+const positionBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.bufferData(
+  gl.ARRAY_BUFFER,
+  new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]),
+  gl.STATIC_DRAW
+);
+
+function getProjectionMatrix(width, height, x, y, scaleX, scaleY) {
+  return [
+    (2 / width) * scaleX, 0, 0,
+    0, (-2 / height) * scaleY, 0,
+    -1 + (2 * x) / width, 1 - (2 * y) / height, 1
+  ];
 }
 
+const paddleW = 15, paddleH = 80;
+const speed = 6;
 
-
-const positionLocation = gl.getAttribLocation(program, "aPosition");
-const colorLocation = gl.getUniformLocation(program, "uColor");
-const transformLocation = gl.getUniformLocation(program, "u_transform");
-
+const player1 = { x: 20, y: 260, score: 0 };
+const player2 = { x: 565, y: 260, score: 0 };
+const ball = { x: 290, y: 290, size: 15, vx: 4, vy: 3 };
 
 const keys = {};
+window.addEventListener("keydown", (e) => (keys[e.key] = true));
+window.addEventListener("keyup", (e) => (keys[e.key] = false));
 
-window.addEventListener('keydown', (e) => {
-    keys[e.key] = true;
-    if(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].indexOf(e.key) > -1) {
-        e.preventDefault();
-    }
-});
-
-window.addEventListener('keyup', (e) => keys[e.key] = false);
-
-const uiScore = document.getElementById("score-display");
-
-let scoreP1 = 0;
-let scoreP2 = 0;
-
-function updateUI() {
-    uiScore.textContent = `${scoreP1} x ${scoreP2}`;
+function resetBall(direction) {
+  ball.x = 290;
+  ball.y = 290;
+  ball.vx = direction * 4;
+  ball.vy = (Math.random() - 0.5) * 6;
 }
 
+function update() {
+ 
+  if (keys["w"] || keys["W"]) player1.y -= speed;
+  if (keys["s"] || keys["S"]) player1.y += speed;
+  player1.y = Math.max(0, Math.min(600 - paddleH, player1.y));
 
-let tyBE = 0.0;
-let tyBD = 0.0;
-let paddleSpeed = 0.02;
+  if (keys["ArrowUp"]) player2.y -= speed;
+  if (keys["ArrowDown"]) player2.y += speed;
+  player2.y = Math.max(0, Math.min(600 - paddleH, player2.y));
 
-let txBola = 0.0;
-let tyBola = 0.0;
-let txBola_offset = 0.01; 
-let tyBola_offset = 0.01; 
+  ball.x += ball.vx;
+  ball.y += ball.vy;
 
-const ballRadius = 0.05;
-const paddleHalfWidth = 0.05;
-const paddleHalfHeight = 0.2;
-const leftPaddleX = -0.9;
-const rightPaddleX = 0.9;
+  if (ball.y <= 0 || ball.y + ball.size >= 600) ball.vy *= -1;
 
-function atualizaAnimacao(){
-    
-    if (keys['w'] || keys['W']) tyBE += paddleSpeed;
-    if (keys['s'] || keys['S']) tyBE -= paddleSpeed;
-    if (keys['ArrowUp']) tyBD += paddleSpeed;
-    if (keys['ArrowDown']) tyBD -= paddleSpeed;
+  if (
+    ball.x < player1.x + paddleW &&
+    ball.x + ball.size > player1.x &&
+    ball.y < player1.y + paddleH &&
+    ball.y + ball.size > player1.y
+  ) {
+    ball.vx = Math.abs(ball.vx) * 1.05;
+    ball.x = player1.x + paddleW;
+  }
 
-    tyBE = Math.max(-1.0 + paddleHalfHeight, Math.min(1.0 - paddleHalfHeight, tyBE));
-    tyBD = Math.max(-1.0 + paddleHalfHeight, Math.min(1.0 - paddleHalfHeight, tyBD));
+  if (
+    ball.x < player2.x + paddleW &&
+    ball.x + ball.size > player2.x &&
+    ball.y < player2.y + paddleH &&
+    ball.y + ball.size > player2.y
+  ) {
+    ball.vx = -Math.abs(ball.vx) * 1.05;
+    ball.x = player2.x - ball.size;
+  }
 
-    MbarraEsquerda = m3.translation(leftPaddleX, tyBE);
-    MbarraDireita = m3.translation(rightPaddleX, tyBD);
+  if (ball.x < 0) {
+    player2.score++;
+    score2El.textContent = player2.score;
+    resetBall(1);
+  }
 
-    txBola += txBola_offset;
-    tyBola += tyBola_offset;
-
-    if (tyBola + ballRadius > 1.0 || tyBola - ballRadius < -1.0) {
-        tyBola_offset = -tyBola_offset;
-    }
-
-    if (txBola - ballRadius < leftPaddleX + paddleHalfWidth && 
-        txBola + ballRadius > leftPaddleX - paddleHalfWidth &&
-        tyBola + ballRadius > tyBE - paddleHalfHeight && 
-        tyBola - ballRadius < tyBE + paddleHalfHeight) {
-        
-        txBola_offset = Math.abs(txBola_offset);
-    }
-
-    if (txBola + ballRadius > rightPaddleX - paddleHalfWidth && 
-        txBola - ballRadius < rightPaddleX + paddleHalfWidth &&
-        tyBola + ballRadius > tyBD - paddleHalfHeight && 
-        tyBola - ballRadius < tyBD + paddleHalfHeight) {
-        
-        txBola_offset = -Math.abs(txBola_offset);
-    }
-
-    if (txBola < -1.0) {
-        scoreP2++;
-        txBola = 0.0; tyBola = 0.0;
-        txBola_offset = Math.abs(txBola_offset); 
-        updateUI();
-    } else if (txBola > 1.0) {
-        scoreP1++;
-        txBola = 0.0; tyBola = 0.0;
-        txBola_offset = -Math.abs(txBola_offset); 
-        updateUI();
-    }
-
-    MbolaCentro = m3.translation(txBola, tyBola);
+  if (ball.x > 600) {
+    player1.score++;
+    score1El.textContent = player1.score;
+    resetBall(-1);
+  }
 }
 
-
-
-gl.clearColor(0.0, 0.0, 0.1, 1.0);
-
-const numComponents = 2;
-
-function drawScene(){
-    
-    atualizaAnimacao();
-
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(program);
-    drawBarraEsquerda();
-    drawBarraDireita();
-    drawBolaCentro();
-    
-    requestAnimationFrame(drawScene);
+function drawRect(x, y, width, height, color) {
+  const matrix = getProjectionMatrix(600, 600, x, y, width, height);
+  gl.uniformMatrix3fv(matrixLocation, false, matrix);
+  gl.uniform4fv(colorLocation, color);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
-function drawBarraEsquerda(){
+function render() {
+  gl.viewport(0, 0, 600, 600);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, verticesBarraEsquerda, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform3fv(colorLocation, corBarraEsquerda);
-    gl.uniformMatrix3fv(transformLocation, false, MbarraEsquerda);
-    gl.drawArrays(gl.TRIANGLES, 0, verticesBarraEsquerda.length / numComponents);
+  gl.useProgram(program);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+  for (let y = 10; y < 600; y += 30) {
+    drawRect(297, y, 6, 15, [0.3, 0.3, 0.3, 1]);
+  }
+
+  drawRect(player1.x, player1.y, paddleW, paddleH, [0, 1, 0, 1]);
+
+  drawRect(player2.x, player2.y, paddleW, paddleH, [0, 0.5, 1, 1]);
+
+  drawRect(ball.x, ball.y, ball.size, ball.size, [1, 1, 1, 1]);
 }
 
-function drawBarraDireita(){
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, verticesBarraDireita, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform3fv(colorLocation, corBarraDireita);
-    gl.uniformMatrix3fv(transformLocation, false, MbarraDireita);
-    gl.drawArrays(gl.TRIANGLES, 0, verticesBarraDireita.length / numComponents);
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
 }
 
-function drawBolaCentro(){
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, verticesBolaCentro, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform3fv(colorLocation, corBolaCentro);
-    gl.uniformMatrix3fv(transformLocation, false, MbolaCentro);
-    gl.drawArrays(gl.TRIANGLES, 0, verticesBolaCentro.length / numComponents);
-}
-
-
-drawScene();
+gameLoop();
